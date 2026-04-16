@@ -524,8 +524,7 @@ const donutLabelPlugin = {
   id:'donutLabelPlugin',
   afterDraw(chart){
     if(chart.config.type!=='doughnut') return;
-    // 딜러 도넛은 커스텀 플러그인 사용 → 전역 플러그인 제외
-    if(chart.canvas.id==='c-dealer-donut') return;
+
     const ctx=chart.ctx;
     const ds=chart.data.datasets[0];
     const meta=chart.getDatasetMeta(0);
@@ -534,6 +533,53 @@ const donutLabelPlugin = {
     const cx=(ca.left+ca.right)/2;
     const cy=(ca.top+ca.bottom)/2;
     const outerR=(Math.min(ca.right-ca.left, ca.bottom-ca.top)/2)*0.92;
+
+    // ── 딜러 도넛 전용: SevenU/Innomed/TMI만 지시선, 나머지 우측 텍스트 ──
+    if(chart.canvas.id==='c-dealer-donut'){
+      const LABELED=['Seven U','SevenU','Innomed','TMI'];
+      const r1=outerR+8, r2=outerR+30; // 지시선 더 길게
+      const others=[];
+      meta.data.forEach((arc,i)=>{
+        const lbl=chart.data.labels[i];
+        const v=ds.data[i];
+        if(!v||v<=0)return;
+        if(!LABELED.includes(lbl)){ others.push([lbl,v]); return; }
+        const mid=(arc.startAngle+arc.endAngle)/2;
+        const lx1=cx+Math.cos(mid)*r1, ly1=cy+Math.sin(mid)*r1;
+        const lx2=cx+Math.cos(mid)*r2, ly2=cy+Math.sin(mid)*r2;
+        const isLeft=lx2<cx;
+        const lx3=lx2+(isLeft?-10:10);
+        const col=(ds.backgroundColor instanceof Array)?ds.backgroundColor[i]:'#aaa';
+        ctx.save();
+        ctx.strokeStyle=col; ctx.lineWidth=1.2;
+        ctx.beginPath();ctx.moveTo(lx1,ly1);ctx.lineTo(lx2,ly2);ctx.lineTo(lx3,ly2);ctx.stroke();
+        ctx.textAlign=isLeft?'right':'left';
+        ctx.textBaseline='bottom'; ctx.font='500 10px -apple-system,sans-serif'; ctx.fillStyle='#333';
+        ctx.fillText(lbl, lx3+(isLeft?-3:3), ly2-1);
+        ctx.font='400 9px -apple-system,sans-serif'; ctx.fillStyle='#666';
+        ctx.textBaseline='top';
+        ctx.fillText(`${fmtSm(v)} (${(v/tot*100).toFixed(1)}%)`, lx3+(isLeft?-3:3), ly2+2);
+        ctx.restore();
+      });
+      // 나머지: 오른쪽 세로 목록
+      if(others.length>0){
+        const startY=ca.top+8;
+        ctx.save();
+        ctx.textAlign='right'; ctx.textBaseline='top';
+        ctx.font='bold 9px -apple-system,sans-serif'; ctx.fillStyle='#999';
+        ctx.fillText('기타', ca.right-4, startY);
+        others.forEach(([d,v],i)=>{
+          const idx=chart.data.labels.indexOf(d);
+          const col=(ds.backgroundColor instanceof Array)?ds.backgroundColor[idx]:'#aaa';
+          ctx.fillStyle=col;
+          ctx.fillRect(ca.right-108, startY+15+i*14, 7, 7);
+          ctx.font='400 8.5px -apple-system,sans-serif'; ctx.fillStyle='#555';
+          ctx.fillText(`${d}  ${(v/tot*100).toFixed(1)}%`, ca.right-4, startY+14+i*14);
+        });
+        ctx.restore();
+      }
+      return; // 이후 일반 로직 실행 안 함
+    }
 
     // 차트 타입 판별: 금액/건수/대수
     const isCountChart = chart.canvas.id==='c-new-donut'||chart.canvas.id==='c-ex-donut';
@@ -1579,35 +1625,19 @@ function buildDealer(){
       options:{...mkDonutOpts(),layout:{padding:55}}
     });
 
-    // 담당자별 바차트 (BI)
-    const srMap={};
-    DATA.dd_data.by_q_channel.forEach(d=>{
-      if(!qKeys.includes(d.q))return;
-      srMap[d.channel]=(srMap[d.channel]||0)+(d[ck]||0);
-    });
-    const channels=['Direct','SevenU','Innomed'];
-    const chColors=['#3B82F6','#10B981','#F59E0B'];
-    if(charts.ddSr){try{charts.ddSr.destroy();}catch(e){} delete charts.ddSr;}
-    charts.ddSr=new Chart(document.getElementById('c-dd-sr'),{
-      type:'bar',
-      data:{labels:qKeys.map(qLabel),datasets:channels.map((ch,i)=>({
-        label:ch,
-        data:qKeys.map(q=>{const d=DATA.dd_data.by_q_channel.find(r=>r.q===q&&r.channel===ch);return d?.[ck]||0;}),
-        backgroundColor:chColors[i],borderRadius:3,
-      }))},
-      options:{responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10,boxHeight:10,padding:8,color:'#9e9e98'}},tooltip:{callbacks:{label:c=>' '+c.dataset.label+': '+fmtSm(c.raw)}}},
-        scales:{x:{grid:{display:false},ticks:{...TK,maxRotation:0}},y:{grid:{color:GC,drawBorder:false},ticks:{...TK,callback:tickCur}}}}
-    });
+    // 담당자 SR 카드 숨기기 (BI에선 불필요)
+    const ddSrCard = document.getElementById('c-dd-sr')?.closest('.card');
+    if(ddSrCard) ddSrCard.style.display='none';
 
-    // 딜러별 추이 (BI: by_q_seg 기반)
+    // Direct/SevenU/Innomed 분기별 바차트 → c-dd-yr 사용
+    if(charts.ddSr){try{charts.ddSr.destroy();}catch(e){} delete charts.ddSr;}
     if(charts.ddYr){try{charts.ddYr.destroy();}catch(e){} delete charts.ddYr;}
     charts.ddYr=new Chart(document.getElementById('c-dd-yr'),{
       type:'bar',
       data:{labels:qKeys.map(qLabel),datasets:[
-        {label:'Direct',data:qKeys.map(q=>{const d=DATA.dd_data.by_q_seg.find(r=>r.q===q&&r.seg==='Direct');return d?.[ck]||0;}),backgroundColor:'#3B82F6',borderRadius:3},
-        {label:'SevenU',data:qKeys.map(q=>{const d=DATA.dd_data.by_q_channel.find(r=>r.q===q&&r.channel==='SevenU');return d?.[ck]||0;}),backgroundColor:'#10B981',borderRadius:3},
-        {label:'Innomed',data:qKeys.map(q=>{const d=DATA.dd_data.by_q_channel.find(r=>r.q===q&&r.channel==='Innomed');return d?.[ck]||0;}),backgroundColor:'#F59E0B',borderRadius:3},
+        {label:'Direct', data:qKeys.map(q=>{const d=DATA.dd_data.by_q_channel.find(r=>r.q===q&&r.channel==='Direct'); return d?.[ck]||0;}), backgroundColor:'#3B82F6',borderRadius:3},
+        {label:'SevenU', data:qKeys.map(q=>{const d=DATA.dd_data.by_q_channel.find(r=>r.q===q&&r.channel==='SevenU'); return d?.[ck]||0;}), backgroundColor:'#10B981',borderRadius:3},
+        {label:'Innomed',data:qKeys.map(q=>{const d=DATA.dd_data.by_q_channel.find(r=>r.q===q&&r.channel==='Innomed');return d?.[ck]||0;}), backgroundColor:'#F59E0B',borderRadius:3},
       ]},
       options:{responsive:true,maintainAspectRatio:false,
         plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10,boxHeight:10,padding:8,color:'#9e9e98'}},tooltip:{callbacks:{label:c=>' '+c.dataset.label+': '+fmtSm(c.raw)}}},
@@ -1616,6 +1646,9 @@ function buildDealer(){
 
   } else {
     // ═══ Real 기준: conf_data (confidential, 대상딜러 11개) ═══
+    // SR 카드 다시 표시
+    const ddSrCard2 = document.getElementById('c-dd-sr')?.closest('.card');
+    if(ddSrCard2) ddSrCard2.style.display='';
     const CD = DATA.conf_data;
     const DEALER_COLORS=['#3B82F6','#10B981','#F59E0B','#8B5CF6','#EF4444','#06B6D4','#F97316','#84CC16','#EC4899','#6B7280','#14B8A6'];
     const SR_COLORS=['#3B82F6','#10B981','#F59E0B','#8B5CF6','#EF4444'];
@@ -1728,11 +1761,9 @@ function buildDealer(){
         layout:{padding:{top:8,right:120,bottom:8,left:55}},
         plugins:{
           legend:{display:false},
-          donutLabelPlugin:{enabled:false}, // 전역 플러그인 비활성
           tooltip:{callbacks:{label:c=>`  ${c.label}: ${fmtSm(c.raw)} (${dealerTot?(c.raw/dealerTot*100).toFixed(1):0}%)`}}
         }
-      },
-      plugins:[dealerDonutAnnotPlugin]
+      }
     });
 
     // ── 담당자별 Direct/In-Direct 바차트 (재직자 5명) ──
