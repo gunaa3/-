@@ -1587,10 +1587,10 @@ function buildDealer(){
     const innomed = DATA.dd_data.by_q_channel.filter(d=>qKeys.includes(d.q)&&d.channel==='Innomed').reduce((s,d)=>s+(d[ck]||0),0);
 
     setKPI('kpi-dealer',[
+      {lbl:`총 매출 (SALES) · ${currency}`, val:fmt(tot), badge:'선택 분기 합산', cls:'neu'},
       {lbl:`Direct 매출 · ${currency}`, val:fmt(dirTot), badge:tot?(dirTot/tot*100).toFixed(1)+'% 비중':'', cls:'hi'},
       {lbl:`Dealer 매출 · ${currency}`, val:fmt(dealTot), badge:tot?(dealTot/tot*100).toFixed(1)+'% 비중':'', cls:'neu'},
       {lbl:'SevenU', val:fmt(sevenU), badge:tot?(sevenU/tot*100).toFixed(1)+'% 비중':'', cls:'neu'},
-      {lbl:'Innomed', val:fmt(innomed), badge:tot?(innomed/tot*100).toFixed(1)+'% 비중':'', cls:'neu'},
     ]);
 
     // 도넛1: Direct vs Dealer
