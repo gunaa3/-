@@ -188,7 +188,7 @@ footer{text-align:center;font-size:11px;color:var(--text3);padding:2rem;margin-t
   <button class="tab on" onclick="goTab('overview')">📊 총괄 매출</button>
   <button class="tab" onclick="goTab('product')">⚙️ 장비별 현황</button>
   <button class="tab" onclick="goTab('region')">📍 지역별 현황</button>
-  <button class="tab" onclick="goTab('sr')">👤 담당자 성과</button>
+  <button class="tab" onclick="goTab('sr')">👤 담당자 성과 (재직자)</button>
   <button class="tab" onclick="goTab('dealer')">🤝 딜러 분석</button>
   <button class="tab" onclick="goTab('detail')">📋 상세 현황</button>
 </div>
@@ -334,8 +334,8 @@ footer{text-align:center;font-size:11px;color:var(--text3);padding:2rem;margin-t
       <div class="cw" style="height:240px"><canvas id="c-dealer-donut"></canvas></div>
     </div>
     <div class="card full">
-      <div class="cl">담당자별 매출 <span id="dd-sr-mode-label" style="font-size:11px;font-weight:400;color:var(--text3)">· BI 기준</span></div>
-      <div class="cs">SR 기준 · 분기별</div>
+      <div class="cl">담당자 성과 <span style="font-size:11px;font-weight:400;color:var(--text3)">(재직자)</span></div>
+      <div class="cs">담당자 성과 · 재직자 기준 · 분기별</div>
       <div class="cw" style="height:220px"><canvas id="c-dd-sr"></canvas></div>
     </div>
     <div class="card full">
